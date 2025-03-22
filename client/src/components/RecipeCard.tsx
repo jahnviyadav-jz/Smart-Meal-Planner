@@ -42,12 +42,36 @@ export default function RecipeCard({ recipe, extended = false }: RecipeCardProps
         <div className="p-4 flex-1 flex flex-col">
           <h4 className="font-medium text-lg mb-1">{recipe.title}</h4>
           <p className="text-sm text-muted-foreground mb-3">{recipe.description}</p>
+          
+          {recipe.ingredients && recipe.ingredients.length > 0 && (
+            <div className="mb-3">
+              <h5 className="text-sm font-medium mb-1">Ingredients:</h5>
+              <div className="flex flex-wrap gap-1">
+                {recipe.ingredients.map((ingredient, idx) => (
+                  <span 
+                    key={idx} 
+                    className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800"
+                  >
+                    {ingredient}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <div className="flex items-center text-sm text-muted-foreground mt-auto">
             <span className="material-icons text-sm mr-1">schedule</span>
             <span>{recipe.prepTime} mins</span>
             <span className="mx-2">•</span>
             <span className="material-icons text-sm mr-1">local_fire_department</span>
             <span>{recipe.calories} cal</span>
+            {recipe.mealType && recipe.mealType !== 'any' && (
+              <>
+                <span className="mx-2">•</span>
+                <span className="material-icons text-sm mr-1">restaurant</span>
+                <span className="capitalize">{recipe.mealType}</span>
+              </>
+            )}
           </div>
         </div>
         <div className="px-4 pb-4 pt-1 flex justify-between">
@@ -72,12 +96,39 @@ export default function RecipeCard({ recipe, extended = false }: RecipeCardProps
       <div className="p-4 flex-1 flex flex-col">
         <h4 className="font-medium mb-1">{recipe.title}</h4>
         <p className="text-sm text-muted-foreground mb-3">{recipe.description}</p>
+        
+        {recipe.ingredients && recipe.ingredients.length > 0 && (
+          <div className="mb-2">
+            <h5 className="text-xs font-medium mb-1">Ingredients:</h5>
+            <div className="flex flex-wrap gap-1">
+              {recipe.ingredients.slice(0, 3).map((ingredient, idx) => (
+                <span 
+                  key={idx} 
+                  className="px-1.5 py-0.5 text-xs rounded-full bg-green-100 text-green-800"
+                >
+                  {ingredient}
+                </span>
+              ))}
+              {recipe.ingredients.length > 3 && (
+                <span className="text-xs text-muted-foreground">+{recipe.ingredients.length - 3} more</span>
+              )}
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center text-sm text-muted-foreground mt-auto">
           <span className="material-icons text-sm mr-1">schedule</span>
           <span>{recipe.prepTime} mins</span>
           <span className="mx-2">•</span>
           <span className="material-icons text-sm mr-1">local_fire_department</span>
           <span>{recipe.calories} cal</span>
+          {recipe.mealType && recipe.mealType !== 'any' && (
+            <>
+              <span className="mx-2">•</span>
+              <span className="material-icons text-sm mr-1">restaurant</span>
+              <span className="capitalize">{recipe.mealType}</span>
+            </>
+          )}
         </div>
       </div>
       <div className="px-4 pb-4 pt-1 flex justify-between">

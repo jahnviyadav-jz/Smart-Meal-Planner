@@ -19,6 +19,71 @@ const openai = new OpenAI({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Image Scan API - Scan ingredients from an image
+  app.post("/api/scan-ingredients", async (req, res) => {
+    try {
+      const data = imageScanRequestSchema.parse(req.body);
+      
+      try {
+        // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a computer vision expert specialized in identifying food ingredients from images. Return your analysis as a JSON object with an 'ingredients' array containing the names of all food items you can identify."
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Identify all food ingredients in this image. Return ONLY a JSON object with an array called 'ingredients' listing all the food items you can see."
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: data.image
+                  }
+                }
+              ],
+            }
+          ],
+          response_format: { type: "json_object" }
+        });
+        
+        // Parse the JSON response
+        const result = JSON.parse(response.choices[0].message.content);
+        
+        if (!result.ingredients || !Array.isArray(result.ingredients)) {
+          throw new Error("Invalid response format from AI");
+        }
+        
+        // Add the identified ingredients to the user's pantry
+        const userId = 1; // For now, use a default user ID
+        const addedIngredients = await Promise.all(
+          result.ingredients.map(async (name: string) => {
+            return await storage.addIngredient({ name, userId });
+          })
+        );
+        
+        res.json({ 
+          ingredients: result.ingredients,
+          added: addedIngredients 
+        });
+      } catch (openaiError) {
+        console.error("OpenAI API error in image scanning:", openaiError);
+        res.status(500).json({ 
+          message: "Failed to scan ingredients from image. The AI service is currently unavailable.",
+          error: openaiError.message
+        });
+      }
+    } catch (error) {
+      console.error("Image scanning error:", error);
+      res.status(400).json({ message: "Invalid image data" });
+    }
+  });
+
   // Ingredients API
   app.get("/api/ingredients", async (req, res) => {
     try {

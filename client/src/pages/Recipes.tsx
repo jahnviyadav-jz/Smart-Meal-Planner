@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function Recipes() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [mealType, setMealType] = useState("any");
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -40,7 +41,11 @@ export default function Recipes() {
       const recipeResponse = await fetch("/api/recipe-recommendations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ingredients, diet: "none" })
+        body: JSON.stringify({ 
+          ingredients, 
+          diet: "none",
+          mealType: mealType
+        })
       });
       
       if (!recipeResponse.ok) {
@@ -68,16 +73,24 @@ export default function Recipes() {
     }
   };
 
-  // Filter recipes based on search term and active filter
+  // Filter recipes based on search term, active filter, and meal type
   const filteredRecipes = recipes.filter(recipe => {
     const matchesSearch = recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          recipe.description.toLowerCase().includes(searchTerm.toLowerCase());
     
-    if (activeFilter === "all") return matchesSearch;
-    if (activeFilter === "saved") return matchesSearch && recipe.saved;
+    // Category filter
+    const matchesCategory = 
+      activeFilter === "all" ? true :
+      activeFilter === "saved" ? recipe.saved :
+      activeFilter === "quick" ? (recipe.prepTime <= 30) :
+      true;
     
-    // Filter by cuisine type, preparation time, etc. could be added here
-    return matchesSearch;
+    // Meal type filter
+    const matchesMealType = 
+      mealType === "any" ? true :
+      (recipe.mealType === mealType);
+    
+    return matchesSearch && matchesCategory && matchesMealType;
   });
 
   return (
@@ -107,48 +120,103 @@ export default function Recipes() {
           </Button>
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Input
-              type="text"
-              placeholder="Search recipes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg"
-            />
-            {searchTerm && (
-              <button 
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground"
-                onClick={() => setSearchTerm("")}
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Input
+                type="text"
+                placeholder="Search recipes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-4 py-3 rounded-lg"
+              />
+              {searchTerm && (
+                <button 
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+                  onClick={() => setSearchTerm("")}
+                >
+                  <span className="material-icons">close</span>
+                </button>
+              )}
+            </div>
+            
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              <Button 
+                variant={activeFilter === "all" ? "default" : "outline"}
+                onClick={() => setActiveFilter("all")}
+                className="rounded-full"
               >
-                <span className="material-icons">close</span>
-              </button>
-            )}
+                All
+              </Button>
+              <Button 
+                variant={activeFilter === "saved" ? "default" : "outline"}
+                onClick={() => setActiveFilter("saved")}
+                className="rounded-full"
+              >
+                <span className="material-icons text-sm mr-1">bookmark</span>
+                Saved
+              </Button>
+              <Button 
+                variant={activeFilter === "quick" ? "default" : "outline"}
+                onClick={() => setActiveFilter("quick")}
+                className="rounded-full"
+              >
+                <span className="material-icons text-sm mr-1">schedule</span>
+                Quick
+              </Button>
+            </div>
           </div>
           
-          <div className="flex gap-2 overflow-x-auto pb-2">
+          {/* Meal Type Filters */}
+          <div className="flex flex-wrap gap-2">
+            <span className="text-sm font-medium my-auto mr-1">Meal Type:</span>
             <Button 
-              variant={activeFilter === "all" ? "default" : "outline"}
-              onClick={() => setActiveFilter("all")}
-              className="rounded-full"
+              variant={mealType === "any" ? "default" : "outline"}
+              onClick={() => setMealType("any")}
+              className="h-8 rounded-full text-xs"
+              size="sm"
             >
-              All
+              Any
             </Button>
             <Button 
-              variant={activeFilter === "saved" ? "default" : "outline"}
-              onClick={() => setActiveFilter("saved")}
-              className="rounded-full"
+              variant={mealType === "breakfast" ? "default" : "outline"}
+              onClick={() => setMealType("breakfast")}
+              className="h-8 rounded-full text-xs"
+              size="sm"
             >
-              <span className="material-icons text-sm mr-1">bookmark</span>
-              Saved
+              Breakfast
             </Button>
             <Button 
-              variant={activeFilter === "quick" ? "default" : "outline"}
-              onClick={() => setActiveFilter("quick")}
-              className="rounded-full"
+              variant={mealType === "lunch" ? "default" : "outline"}
+              onClick={() => setMealType("lunch")}
+              className="h-8 rounded-full text-xs"
+              size="sm"
             >
-              <span className="material-icons text-sm mr-1">schedule</span>
-              Quick
+              Lunch
+            </Button>
+            <Button 
+              variant={mealType === "dinner" ? "default" : "outline"}
+              onClick={() => setMealType("dinner")}
+              className="h-8 rounded-full text-xs"
+              size="sm"
+            >
+              Dinner
+            </Button>
+            <Button 
+              variant={mealType === "brunch" ? "default" : "outline"}
+              onClick={() => setMealType("brunch")}
+              className="h-8 rounded-full text-xs"
+              size="sm"
+            >
+              Brunch
+            </Button>
+            <Button 
+              variant={mealType === "snack" ? "default" : "outline"}
+              onClick={() => setMealType("snack")}
+              className="h-8 rounded-full text-xs"
+              size="sm"
+            >
+              Snack
             </Button>
           </div>
         </div>
