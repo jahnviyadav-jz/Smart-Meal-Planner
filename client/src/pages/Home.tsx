@@ -131,10 +131,15 @@ export default function Home() {
     }
   };
 
+  // Get location for navigation
+  const [, setLocation] = useLocation();
+  
   // Handle finding recipes
   const handleFindRecipes = () => {
     if (ingredients.length > 0) {
       findRecipesMutation.mutate();
+      // Navigate to recipes page
+      setLocation("/recipes");
     } else {
       toast({
         title: "No ingredients",
@@ -344,7 +349,13 @@ export default function Home() {
       <section className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Recipe Suggestions</h3>
-          <Button variant="link" className="text-primary text-sm font-medium p-0">See All</Button>
+          <Button 
+            variant="link" 
+            className="text-primary text-sm font-medium p-0"
+            onClick={() => setLocation("/recipes")}
+          >
+            See All
+          </Button>
         </div>
         
         <div className="flex gap-4 overflow-x-auto pb-4">
@@ -365,7 +376,13 @@ export default function Home() {
         <section className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">Your Nutrition Today</h3>
-            <Button variant="link" className="text-primary text-sm font-medium p-0">Details</Button>
+            <Button 
+              variant="link" 
+              className="text-primary text-sm font-medium p-0"
+              onClick={() => setLocation("/nutrition")}
+            >
+              Details
+            </Button>
           </div>
           
           <Card className="p-5">
