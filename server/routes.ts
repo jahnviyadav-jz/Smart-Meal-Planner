@@ -8,7 +8,8 @@ import {
   insertGroceryItemSchema,
   recipeRecommendationRequestSchema,
   insertRecipeSchema,
-  insertNutritionDataSchema
+  insertNutritionDataSchema,
+  imageScanRequestSchema
 } from "../shared/schema";
 
 // Initialize OpenAI API with API key from environment variable
@@ -56,7 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sample recipes for fallback when API is unavailable
-  const getSampleRecipesForIngredients = async (ingredients: string[], diet?: string) => {
+  const getSampleRecipesForIngredients = async (ingredients: string[], diet?: string, mealType?: string) => {
     // Basic recipes that can be made with common ingredients
     const sampleRecipes = [
       {
@@ -66,7 +67,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: "",
         prepTime: 30,
         calories: 450,
-        saved: false
+        saved: false,
+        mealType: "dinner",
+        ingredients: ["Chicken", "Rice", "Bell Peppers", "Onions", "Garlic", "Olive oil", "Broccoli"]
       },
       {
         title: "Mediterranean Rice Bowl",
@@ -75,7 +78,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: "",
         prepTime: 25,
         calories: 380,
-        saved: false
+        saved: false,
+        mealType: "lunch",
+        ingredients: ["Rice", "Bell Peppers", "Onions", "Garlic", "Olive oil", "Broccoli"]
       },
       {
         title: "Garlic Chicken with Roasted Vegetables",
@@ -84,13 +89,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         imageUrl: "",
         prepTime: 40,
         calories: 410,
-        saved: false
+        saved: false,
+        mealType: "dinner",
+        ingredients: ["Chicken", "Garlic", "Bell Peppers", "Onions", "Olive oil", "Broccoli"]
       }
     ];
     
+    // Filter recipes by meal type if specified
+    let filteredRecipes = sampleRecipes;
+    if (mealType && mealType !== 'any') {
+      filteredRecipes = sampleRecipes.filter(recipe => recipe.mealType === mealType);
+      
+      // If no recipes match the meal type, return at least one with adjusted meal type
+      if (filteredRecipes.length === 0) {
+        filteredRecipes = [
+          {
+            ...sampleRecipes[0],
+            mealType: mealType
+          }
+        ];
+      }
+    }
+    
     // Store recipe recommendations in memory
     const storedRecipes = await Promise.all(
-      sampleRecipes.map((recipe) => 
+      filteredRecipes.map((recipe) => 
         storage.addRecipe({
           title: recipe.title,
           description: recipe.description,
@@ -98,7 +121,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           imageUrl: recipe.imageUrl || "",
           prepTime: recipe.prepTime || 30,
           calories: recipe.calories || 300,
-          saved: false
+          saved: false,
+          mealType: recipe.mealType || "any",
+          ingredients: recipe.ingredients || ingredients
         })
       )
     );
@@ -119,11 +144,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           messages: [
             {
               role: "system",
-              content: "You are a culinary expert who provides recipe recommendations based on available ingredients. Create recipes that maximize the ingredients provided and keep suggestions practical. Return a JSON object with a 'recipes' array. Each recipe should have: title, description, instructions (step by step), imageUrl (leave empty string), prepTime (realistic estimate in minutes), calories (realistic estimate per serving)."
+              content: "You are a culinary expert who provides recipe recommendations based on available ingredients. Create recipes that maximize the ingredients provided and keep suggestions practical. Return a JSON object with a 'recipes' array. Each recipe should have: title, description, instructions (step by step), imageUrl (leave empty string), prepTime (realistic estimate in minutes), calories (realistic estimate per serving), ingredients (array of ingredients used in the recipe), mealType (one of: breakfast, lunch, dinner, brunch, snack, or any)."
             },
             {
               role: "user",
-              content: `I have these ingredients: ${data.ingredients.join(", ")}. ${data.diet && data.diet !== 'none' ? `Please suggest ${data.diet} recipes only.` : ""} Suggest 3 diverse recipes I can make with these ingredients. Provide detailed cooking instructions.`
+              content: `I have these ingredients: ${data.ingredients.join(", ")}. 
+              ${data.diet && data.diet !== 'none' ? `Please suggest ${data.diet} recipes only.` : ""} 
+              ${data.mealType && data.mealType !== 'any' ? `I'm looking for ${data.mealType} recipes.` : ""}
+              Suggest 3 diverse recipes I can make with these ingredients. 
+              Provide detailed cooking instructions. 
+              Make sure to list which specific ingredients from my list are used in each recipe.`
             }
           ],
           response_format: { type: "json_object" }
@@ -146,7 +176,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               imageUrl: recipe.imageUrl || "",
               prepTime: recipe.prepTime || 30,
               calories: recipe.calories || 300,
-              saved: false
+              saved: false,
+              mealType: recipe.mealType || "any",
+              ingredients: recipe.ingredients || data.ingredients
             })
           )
         );
@@ -156,7 +188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("OpenAI API error:", openaiError);
         // Fallback to sample recipes if OpenAI API fails
         console.log("Using fallback sample recipes due to OpenAI API issue.");
-        const fallbackRecipes = await getSampleRecipesForIngredients(data.ingredients, data.diet);
+        const fallbackRecipes = await getSampleRecipesForIngredients(data.ingredients, data.diet, data.mealType);
         res.json(fallbackRecipes);
       }
     } catch (error) {

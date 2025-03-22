@@ -39,6 +39,8 @@ export const recipes = pgTable("recipes", {
   prepTime: integer("prep_time").notNull(), // in minutes
   calories: integer("calories").notNull(),
   saved: boolean("saved").default(false),
+  mealType: text("meal_type").default("any"),
+  ingredients: text("ingredients").array(),
 });
 
 export const insertRecipeSchema = createInsertSchema(recipes).pick({
@@ -49,6 +51,8 @@ export const insertRecipeSchema = createInsertSchema(recipes).pick({
   prepTime: true,
   calories: true,
   saved: true,
+  mealType: true,
+  ingredients: true,
 });
 
 export type InsertRecipe = z.infer<typeof insertRecipeSchema>;
@@ -106,6 +110,14 @@ export type NutritionData = typeof nutritionData.$inferSelect;
 export const recipeRecommendationRequestSchema = z.object({
   ingredients: z.array(z.string()),
   diet: z.enum(['none', 'vegetarian', 'vegan', 'high-protein']).optional(),
+  mealType: z.enum(['any', 'breakfast', 'lunch', 'dinner', 'brunch', 'snack']).optional(),
 });
 
 export type RecipeRecommendationRequest = z.infer<typeof recipeRecommendationRequestSchema>;
+
+// Image scanning request schema
+export const imageScanRequestSchema = z.object({
+  image: z.string(),
+});
+
+export type ImageScanRequest = z.infer<typeof imageScanRequestSchema>;
