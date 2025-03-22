@@ -11,9 +11,12 @@ import {
   insertNutritionDataSchema,
   imageScanRequestSchema
 } from "../shared/schema";
+import { nebiusClient } from "./nebius";
 
 // Initialize OpenAI API with API key from environment variable
 console.log("OpenAI API Key available:", !!process.env.OPENAI_API_KEY);
+console.log("Nebius API Key available:", !!process.env.NEBIUS_API_KEY);
+
 const openai = new OpenAI({ 
   apiKey: process.env.OPENAI_API_KEY
 });
@@ -24,6 +27,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = imageScanRequestSchema.parse(req.body);
       
+      // Try using Nebius first if available
+      if (nebiusClient) {
+        try {
+          console.log("Using Nebius for image scanning...");
+          const nebiusResult = await nebiusClient.analyzeImage(data.image || "");
+          
+          if (nebiusResult && nebiusResult.labels && Array.isArray(nebiusResult.labels)) {
+            // Process Nebius result
+            const ingredients = nebiusResult.labels
+              .filter((label: any) => label.confidence > 0.7)
+              .map((label: any) => label.name);
+              
+            // Add the identified ingredients to the user's pantry
+            const userId = 1; // For now, use a default user ID
+            const addedIngredients = await Promise.all(
+              ingredients.map(async (name: string) => {
+                return await storage.addIngredient({ name, userId });
+              })
+            );
+            
+            res.json({ 
+              ingredients,
+              added: addedIngredients,
+              provider: "nebius" 
+            });
+            return;
+          }
+        } catch (nebiusError) {
+          console.error("Nebius API error in image scanning:", nebiusError);
+          // Fall back to OpenAI - continue with OpenAI code below
+          console.log("Falling back to OpenAI for image scanning...");
+        }
+      }
+      
+      // Fallback to OpenAI if Nebius is not available or fails
       try {
         // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
         const response = await openai.chat.completions.create({
@@ -43,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 {
                   type: "image_url",
                   image_url: {
-                    url: data.image
+                    url: data.image || ""
                   }
                 }
               ],
@@ -69,13 +107,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json({ 
           ingredients: result.ingredients,
-          added: addedIngredients 
+          added: addedIngredients,
+          provider: "openai"
         });
-      } catch (openaiError) {
+      } catch (openaiError: unknown) {
         console.error("OpenAI API error in image scanning:", openaiError);
         res.status(500).json({ 
-          message: "Failed to scan ingredients from image. The AI service is currently unavailable.",
-          error: openaiError.message
+          message: "Failed to scan ingredients from image. All AI services are currently unavailable.",
+          error: openaiError instanceof Error ? openaiError.message : "Unknown error"
         });
       }
     } catch (error) {
@@ -201,6 +240,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = recipeRecommendationRequestSchema.parse(req.body);
       
+      // Try using Nebius first if available
+      if (nebiusClient) {
+        try {
+          console.log("Using Nebius for recipe recommendations...");
+          
+          const preferences = {
+            diet: data.diet || "none",
+            mealType: data.mealType || "any"
+          };
+          
+          const nebiusResult = await nebiusClient.getRecipeRecommendations(data.ingredients, preferences);
+          
+          if (nebiusResult && nebiusResult.recipes && Array.isArray(nebiusResult.recipes)) {
+            // Store recipe recommendations from Nebius in memory
+            const storedRecipes = await Promise.all(
+              nebiusResult.recipes.map((recipe: any) => 
+                storage.addRecipe({
+                  title: recipe.title,
+                  description: recipe.description || `A delicious ${recipe.mealType} recipe using ${recipe.ingredients.slice(0, 3).join(", ")}`,
+                  instructions: recipe.instructions,
+                  imageUrl: recipe.imageUrl || "",
+                  prepTime: recipe.prepTime || 30,
+                  calories: recipe.calories || 300,
+                  saved: false,
+                  mealType: recipe.mealType || "any",
+                  ingredients: recipe.ingredients || data.ingredients
+                })
+              )
+            );
+            
+            res.json({
+              recipes: storedRecipes,
+              provider: "nebius"
+            });
+            return;
+          }
+        } catch (nebiusError) {
+          console.error("Nebius API error in recipe recommendations:", nebiusError);
+          // Fall back to OpenAI - continue with OpenAI code below
+          console.log("Falling back to OpenAI for recipe recommendations...");
+        }
+      }
+      
+      // Fallback to OpenAI if Nebius is not available or fails
       try {
         // Use OpenAI to generate recipe recommendations based on ingredients
         // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
@@ -248,13 +331,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           )
         );
 
-        res.json(storedRecipes);
-      } catch (openaiError) {
+        res.json({
+          recipes: storedRecipes,
+          provider: "openai"
+        });
+      } catch (openaiError: unknown) {
         console.error("OpenAI API error:", openaiError);
         // Fallback to sample recipes if OpenAI API fails
         console.log("Using fallback sample recipes due to OpenAI API issue.");
         const fallbackRecipes = await getSampleRecipesForIngredients(data.ingredients, data.diet, data.mealType);
-        res.json(fallbackRecipes);
+        res.json({
+          recipes: fallbackRecipes,
+          provider: "fallback"
+        });
       }
     } catch (error) {
       console.error("Recipe recommendation error:", error);
@@ -455,6 +544,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to remove grocery item" });
+    }
+  });
+
+  // API Service Config
+  app.get("/api/service-info", async (_req, res) => {
+    try {
+      // Provide information about which services are available
+      res.json({
+        services: {
+          openai: !!process.env.OPENAI_API_KEY,
+          nebius: !!process.env.NEBIUS_API_KEY
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch service information" });
     }
   });
 
