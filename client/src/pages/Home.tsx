@@ -1,19 +1,25 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import RecipeCard from "@/components/RecipeCard";
 import NutritionRing from "@/components/NutritionRing";
 import IngredientTag from "@/components/IngredientTag";
+import { scanIngredientsFromImage } from "@/lib/openai";
 import { Recipe, Ingredient, GroceryItem, NutritionData } from "@shared/schema";
 
 export default function Home() {
   const { toast } = useToast();
   const [newIngredient, setNewIngredient] = useState("");
   const [newGroceryItem, setNewGroceryItem] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Fetch ingredients
   const { data: ingredients = [], refetch: refetchIngredients } = useQuery<Ingredient[]>({
@@ -137,6 +143,46 @@ export default function Home() {
       });
     }
   };
+  
+  // Scan image mutation - to detect ingredients in an image
+  const scanImageMutation = useMutation({
+    mutationFn: (imageBase64: string) => 
+      scanIngredientsFromImage(imageBase64),
+    onSuccess: (data) => {
+      setIsScanning(false);
+      setUploadedImage(null);
+      refetchIngredients();
+      toast({
+        title: "Scan complete",
+        description: `Detected ${data.ingredients.length} ingredients and added to your kitchen.`,
+      });
+    },
+    onError: () => {
+      setIsScanning(false);
+      setUploadedImage(null);
+      toast({
+        title: "Scan failed",
+        description: "We couldn't process the image. Please try again with a clearer photo.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Handle image upload
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64Image = e.target?.result as string;
+      setUploadedImage(base64Image);
+      setIsScanning(true);
+      scanImageMutation.mutate(base64Image);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Handle adding grocery item
   const handleAddGroceryItem = () => {
@@ -245,9 +291,30 @@ export default function Home() {
           </div>
           
           <div className="sm:w-auto flex flex-col sm:flex-row gap-2">
-            <Button variant="outline" className="bg-beige text-textPrimary px-4 py-3 rounded-lg flex items-center justify-center border border-gray-200">
-              <span className="material-icons mr-2">photo_camera</span>
-              <span>Scan Items</span>
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+              accept="image/*"
+              className="hidden"
+            />
+            <Button 
+              variant="outline" 
+              className="bg-beige text-textPrimary px-4 py-3 rounded-lg flex items-center justify-center border border-gray-200"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={scanImageMutation.isPending}
+            >
+              {scanImageMutation.isPending ? (
+                <>
+                  <span className="material-icons animate-spin mr-2">refresh</span>
+                  <span>Scanning...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-icons mr-2">photo_camera</span>
+                  <span>Scan Items</span>
+                </>
+              )}
             </Button>
           </div>
         </div>
@@ -400,9 +467,39 @@ export default function Home() {
       </section>
 
       {/* FAB (Mobile Only) */}
-      <button className="sm:hidden fixed right-6 bottom-20 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center z-50">
+      <button 
+        className="sm:hidden fixed right-6 bottom-20 w-14 h-14 rounded-full bg-primary text-white shadow-lg flex items-center justify-center z-50"
+        onClick={() => fileInputRef.current?.click()}
+      >
         <span className="material-icons">add_photo_alternate</span>
       </button>
+      
+      {/* Scan Modal */}
+      <Dialog open={isScanning} onOpenChange={setIsScanning}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Scanning Ingredients</DialogTitle>
+            <DialogDescription>
+              Analyzing your photo to identify ingredients
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex flex-col items-center justify-center p-6">
+            {uploadedImage && (
+              <img 
+                src={uploadedImage} 
+                alt="Scanned Food" 
+                className="max-h-64 rounded-lg mb-4 object-contain" 
+              />
+            )}
+            
+            <div className="flex items-center space-x-2">
+              <span className="material-icons animate-spin text-primary">refresh</span>
+              <p>AI is identifying ingredients...</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
