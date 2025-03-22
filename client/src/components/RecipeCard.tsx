@@ -18,15 +18,30 @@ export default function RecipeCard({ recipe, extended = false }: RecipeCardProps
     },
   });
 
-  // Default recipe image if none provided
-  const defaultImage = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&h=300&q=80";
+  // Generate a consistent unique image URL based on recipe title
+  const getRecipeImage = (title: string) => {
+    // If recipe has an imageUrl, use it
+    if (recipe.imageUrl && recipe.imageUrl.length > 0) return recipe.imageUrl;
+    
+    // Create URL-safe string from title
+    const safeTitle = encodeURIComponent(title.trim().toLowerCase());
+    
+    // Choose a high-quality food image service with parameters for consistency
+    return `https://source.unsplash.com/featured/500x300/?${safeTitle},food,recipe`;
+  };
+  
+  // Generate external recipe link
+  const getExternalRecipeLink = (title: string) => {
+    const searchQuery = encodeURIComponent(`${title} recipe`);
+    return `https://www.google.com/search?q=${searchQuery}`;
+  };
   
   if (extended) {
     return (
       <Card className="flex flex-col h-full overflow-hidden">
         <div className="h-48 relative">
           <img 
-            src={recipe.imageUrl || defaultImage}
+            src={getRecipeImage(recipe.title)}
             alt={recipe.title} 
             className="h-full w-full object-cover"
           />
@@ -75,9 +90,16 @@ export default function RecipeCard({ recipe, extended = false }: RecipeCardProps
           </div>
         </div>
         <div className="px-4 pb-4 pt-1 flex justify-between">
-          <Button variant="link" className="text-primary font-medium text-sm p-0">
-            View Recipe
-          </Button>
+          <a 
+            href={getExternalRecipeLink(recipe.title)} 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            <Button variant="link" className="text-primary font-medium text-sm p-0">
+              View Recipe
+              <span className="material-icons text-sm ml-1">open_in_new</span>
+            </Button>
+          </a>
           <Button variant="ghost" size="sm">
             <span className="material-icons">add_shopping_cart</span>
           </Button>
@@ -89,7 +111,7 @@ export default function RecipeCard({ recipe, extended = false }: RecipeCardProps
   return (
     <div className="min-w-[250px] max-w-[250px] bg-white rounded-xl shadow-custom flex flex-col">
       <img 
-        src={recipe.imageUrl || defaultImage}
+        src={getRecipeImage(recipe.title)}
         alt={recipe.title} 
         className="h-32 w-full object-cover rounded-t-xl"
       />
@@ -132,9 +154,16 @@ export default function RecipeCard({ recipe, extended = false }: RecipeCardProps
         </div>
       </div>
       <div className="px-4 pb-4 pt-1 flex justify-between">
-        <Button variant="link" className="text-primary font-medium text-sm p-0">
-          View Recipe
-        </Button>
+        <a 
+          href={getExternalRecipeLink(recipe.title)} 
+          target="_blank" 
+          rel="noopener noreferrer"
+        >
+          <Button variant="link" className="text-primary font-medium text-sm p-0">
+            View Recipe
+            <span className="material-icons text-sm ml-1">open_in_new</span>
+          </Button>
+        </a>
         <button 
           className="text-muted-foreground"
           onClick={() => saveRecipeMutation.mutate()}
