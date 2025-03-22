@@ -12,8 +12,9 @@ import {
 } from "../shared/schema";
 
 // Initialize OpenAI API with API key from environment variable
+console.log("OpenAI API Key available:", !!process.env.OPENAI_API_KEY);
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || "sk-" // Default to a prefix that will fail gracefully
+  apiKey: process.env.OPENAI_API_KEY
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
