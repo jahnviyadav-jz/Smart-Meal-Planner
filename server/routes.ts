@@ -26,8 +26,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      if (!nebiusClient) {
+        return res.status(500).json({ 
+          message: "Image scanning service is not available - Nebius API key not configured"
+        });
+      }
+
       try {
-        console.log("Using Nebius for image scanning...");
+        console.log("Scanning image with Nebius...");
         if (!data.image || data.image.length < 100) {
           return res.status(400).json({
             message: "Please provide a valid image. The image data appears to be missing or corrupted."
@@ -37,30 +43,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const nebiusResult = await nebiusClient.analyzeImage(data.image);
         
         if (!nebiusResult || !nebiusResult.labels || !Array.isArray(nebiusResult.labels)) {
-          return res.status(422).json({
-            message: "We couldn't process the image. Please try again with a clearer photo.",
-            details: "Make sure the image is well-lit and food items are clearly visible."
-          });
-        }
-
-        if (nebiusResult.labels.length === 0) {
-          return res.status(422).json({
-            message: "No ingredients were detected in the image. Please try again with a clearer photo.",
-            details: "Try taking the photo in better lighting and ensure food items are in focus."
-          });
+          throw new Error("Invalid response format from Nebius API");
         }
 
         // Process Nebius result
         const ingredients = nebiusResult.labels
           .filter((label: any) => label.confidence > 0.7)
           .map((label: any) => label.name);
-
-        if (ingredients.length === 0) {
-          return res.status(422).json({
-            message: "We couldn't identify ingredients with high confidence. Please try again with a clearer photo.",
-            details: "Ensure the ingredients are clearly visible and well-lit."
-          });
-        }
           
         // Add the identified ingredients to the user's pantry
         const userId = 1; // For now, use a default user ID
