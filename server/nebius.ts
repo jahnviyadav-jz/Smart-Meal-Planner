@@ -68,26 +68,10 @@ class NebiusClient {
   
   // Database operations
   async queryDatabase(query: string, params: any = {}) {
-    try {
-      return await this.makeRequest('/database/query', 'POST', {
-        query,
-        params
-      });
-    } catch (error) {
-      console.error('Database query error:', error);
-      return null; // Fallback to allow local storage
-    }
-  }
-
-  async addIngredient(name: string) {
-    try {
-      return await this.makeRequest('/ingredients/add', 'POST', {
-        name
-      });
-    } catch (error) {
-      console.error('Add ingredient error:', error);
-      return { id: Date.now(), name }; // Fallback with generated ID
-    }
+    return this.makeRequest('/database/query', 'POST', {
+      query,
+      params
+    });
   }
 }
 

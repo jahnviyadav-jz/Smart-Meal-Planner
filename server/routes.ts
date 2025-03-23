@@ -19,7 +19,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/scan-ingredients", async (req, res) => {
     try {
       const data = imageScanRequestSchema.parse(req.body);
-
+      
       if (!nebiusClient) {
         return res.status(500).json({ 
           message: "Image scanning service is not available - Nebius API key not configured"
@@ -41,7 +41,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         const nebiusResult = await nebiusClient.analyzeImage(data.image);
-
+        
         if (!nebiusResult || !nebiusResult.labels || !Array.isArray(nebiusResult.labels)) {
           throw new Error("Invalid response format from Nebius API");
         }
@@ -50,7 +50,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const ingredients = nebiusResult.labels
           .filter((label: any) => label.confidence > 0.7)
           .map((label: any) => label.name);
-
+          
         // Add the identified ingredients to the user's pantry
         const userId = 1; // For now, use a default user ID
         const addedIngredients = await Promise.all(
@@ -58,7 +58,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return await storage.addIngredient({ name, userId });
           })
         );
-
+        
         res.json({ 
           ingredients,
           added: addedIngredients,
@@ -90,17 +90,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/ingredients", async (req, res) => {
     try {
-      const { name } = req.body;
-      if (!name || typeof name !== 'string') {
-        return res.status(400).json({ error: 'Invalid ingredient name' });
-      }
-
-      const result = await nebiusClient?.addIngredient(name) || { id: Date.now(), name };
-      storage.ingredients.push(result);
-      res.json(result);
+      const userId = 1; // For now, use a default user ID
+      const data = { ...req.body, userId };
+      const validatedData = insertIngredientSchema.parse(data);
+      const ingredient = await storage.addIngredient(validatedData);
+      res.status(201).json(ingredient);
     } catch (error) {
-      console.error('Error adding ingredient:', error);
-      res.status(500).json({ error: 'Failed to add ingredient' });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid ingredient data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to add ingredient" });
+      }
     }
   });
 
@@ -152,12 +152,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ingredients: ["Chicken", "Garlic", "Bell Peppers", "Onions", "Olive oil", "Broccoli"]
       }
     ];
-
+    
     // Filter recipes by meal type if specified
     let filteredRecipes = sampleRecipes;
     if (mealType && mealType !== 'any') {
       filteredRecipes = sampleRecipes.filter(recipe => recipe.mealType === mealType);
-
+      
       // If no recipes match the meal type, return at least one with adjusted meal type
       if (filteredRecipes.length === 0) {
         filteredRecipes = [
@@ -168,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ];
       }
     }
-
+    
     // Store recipe recommendations in memory
     const storedRecipes = await Promise.all(
       filteredRecipes.map((recipe) => 
@@ -185,7 +185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       )
     );
-
+    
     return storedRecipes;
   };
 
@@ -193,19 +193,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/recipe-recommendations", async (req, res) => {
     try {
       const data = recipeRecommendationRequestSchema.parse(req.body);
-
+      
       // Try using Nebius first if available
       if (nebiusClient) {
         try {
           console.log("Using Nebius for recipe recommendations...");
-
+          
           const preferences = {
             diet: data.diet || "none",
             mealType: data.mealType || "any"
           };
-
+          
           const nebiusResult = await nebiusClient.getRecipeRecommendations(data.ingredients, preferences);
-
+          
           if (nebiusResult && nebiusResult.recipes && Array.isArray(nebiusResult.recipes)) {
             // Store recipe recommendations from Nebius in memory
             const storedRecipes = await Promise.all(
@@ -223,7 +223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 })
               )
             );
-
+            
             res.json({
               recipes: storedRecipes,
               provider: "nebius"
@@ -236,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log("Falling back to OpenAI for recipe recommendations...");
         }
       }
-
+      
       // Fallback to OpenAI if Nebius is not available or fails
       try {
         // Use OpenAI to generate recipe recommendations based on ingredients
@@ -263,11 +263,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Parse the JSON response
         const recipesResult = JSON.parse(response.choices[0].message.content);
-
+        
         if (!recipesResult.recipes || !Array.isArray(recipesResult.recipes)) {
           throw new Error("Invalid response format from AI");
         }
-
+        
         // Store recipe recommendations in memory
         const storedRecipes = await Promise.all(
           recipesResult.recipes.map((recipe: any) => 
@@ -334,18 +334,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!recipe) {
         return res.status(404).json({ message: "Recipe not found" });
       }
-
+      
       const updatedRecipe = await storage.updateRecipe(id, {
         ...recipe,
         saved: !recipe.saved
       });
-
+      
       res.json(updatedRecipe);
     } catch (error) {
       res.status(500).json({ message: "Failed to update recipe" });
     }
   });
-
+  
   // Sample recipe analysis for fallback when API is unavailable
   const getSampleRecipeAnalysis = (title: string, ingredients: string[]) => {
     // Return a generic nutritional analysis
@@ -403,11 +403,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/recipe-analysis", async (req, res) => {
     try {
       const { title, ingredients } = req.body;
-
+      
       if (!title || !ingredients || !Array.isArray(ingredients)) {
         return res.status(400).json({ message: "Invalid request. Title and ingredients array are required." });
       }
-
+      
       try {
         // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
         const response = await openai.chat.completions.create({
@@ -427,10 +427,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ],
           response_format: { type: "json_object" }
         });
-
+        
         // Parse the JSON response
         const analysis = JSON.parse(response.choices[0].message.content);
-
+        
         res.json(analysis);
       } catch (openaiError) {
         console.error("OpenAI API error in recipe analysis:", openaiError);
@@ -479,12 +479,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!groceryItem) {
         return res.status(404).json({ message: "Grocery item not found" });
       }
-
+      
       const updatedItem = await storage.updateGroceryItem(id, {
         ...groceryItem,
         completed: !groceryItem.completed
       });
-
+      
       res.json(updatedItem);
     } catch (error) {
       res.status(500).json({ message: "Failed to update grocery item" });
@@ -522,7 +522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = 1; // For now, use a default user ID
       const date = req.query.date as string || new Date().toISOString().split('T')[0];
       const nutritionData = await storage.getNutritionData(userId, date);
-
+      
       // If no data exists for this date, return default data
       if (!nutritionData) {
         return res.json({
@@ -538,7 +538,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           fatGoal: 60
         });
       }
-
+      
       res.json(nutritionData);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch nutrition data" });
@@ -550,10 +550,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = 1; // For now, use a default user ID
       const data = { ...req.body, userId };
       const validatedData = insertNutritionDataSchema.parse(data);
-
+      
       // Check if data for this date already exists
       const existingData = await storage.getNutritionData(userId, validatedData.date);
-
+      
       let nutritionData;
       if (existingData) {
         // Update existing data
@@ -562,7 +562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create new data
         nutritionData = await storage.addNutritionData(validatedData);
       }
-
+      
       res.status(201).json(nutritionData);
     } catch (error) {
       if (error instanceof z.ZodError) {
