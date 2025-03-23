@@ -7,7 +7,7 @@ interface HeaderProps {
 
 export default function Header({ currentPath }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-
+  
   const navItems = [
     { name: "Home", path: "/" },
     { name: "Recipes", path: "/recipes" },
@@ -17,11 +17,11 @@ export default function Header({ currentPath }: HeaderProps) {
   ];
 
   return (
-    <header className="glass-effect sticky top-0 z-50 border-b">
+    <header className="bg-white shadow-custom sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center">
           <span className="material-icons text-primary mr-2">restaurant_menu</span>
-          <h1 className="text-3xl font-bold gradient-text">Smart Meal Planner</h1>
+          <h1 className="text-xl font-semibold">Smart Meal Planner</h1>
         </div>
         <div className="flex items-center">
           <button className="p-2" aria-label="Notifications">
@@ -41,7 +41,7 @@ export default function Header({ currentPath }: HeaderProps) {
           </button>
         </div>
       </div>
-
+      
       {/* Mobile Menu */}
       {menuOpen && (
         <div className="sm:hidden bg-white border-b border-gray-200 absolute w-full z-50">
@@ -64,7 +64,7 @@ export default function Header({ currentPath }: HeaderProps) {
           </nav>
         </div>
       )}
-
+      
       {/* Desktop Navigation */}
       <div className="bg-white border-b border-gray-200 hidden sm:block">
         <div className="container mx-auto">
