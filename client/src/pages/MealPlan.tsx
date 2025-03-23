@@ -125,7 +125,7 @@ export default function MealPlan() {
                 <TabsTrigger 
                   key={day} 
                   value={day.toLowerCase()}
-                  className={`${index === currentDay ? "font-bold text-primary" : "text-gray-600"}`} {/* Improved styling for active day */}
+                  className={index === currentDay ? "font-bold text-primary" : "text-gray-600"}
                 >
                   <div className="flex flex-col items-center py-2 px-4 rounded hover:bg-gray-100"> {/* Added padding and hover effect */}
                     <span className="text-xs text-muted-foreground">{day.slice(0, 3)}</span>
