@@ -1,32 +1,112 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Recipe } from "@shared/schema";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function MealPlan() {
-  // Fetch recipes
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [selectedDay, setSelectedDay] = useState<string>("");
+  
+  // Fetch recipes and meal plans
   const { data: recipes = [] } = useQuery<Recipe[]>({
     queryKey: ["/api/recipes"],
+  });
+
+  const { data: mealPlans = {} } = useQuery<Record<string, Record<string, Recipe[]>>>({
+    queryKey: ["/api/meal-plans"],
+    defaultData: {},
   });
 
   // Current week days
   const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const today = new Date().getDay(); // 0 is Sunday
   const currentDay = today === 0 ? 6 : today - 1; // Adjust to make Monday = 0
-  
-  // For this MVP, we'll just assign recipes randomly to days
-  // In a full implementation, this would come from the backend
-  const getRandomRecipes = (count: number) => {
-    if (recipes.length === 0) return [];
-    
-    const result = [];
-    for (let i = 0; i < count; i++) {
-      const randomIndex = Math.floor(Math.random() * recipes.length);
-      result.push(recipes[randomIndex]);
-    }
-    return result;
-  };
+
+  // Update meal plan
+  const updateMealPlan = useMutation({
+    mutationFn: async ({ day, mealType, recipe }: { day: string; mealType: string; recipe: Recipe }) => {
+      const response = await fetch('/api/meal-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ day, mealType, recipeId: recipe.id }),
+      });
+      if (!response.ok) throw new Error('Failed to update meal plan');
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/meal-plans"] });
+      toast({
+        title: "Success",
+        description: "Meal plan updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update meal plan",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function MealCard({ title, recipes, day }: { title: string; recipes: Recipe[]; day: string }) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base font-medium">{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {recipes.length === 0 ? (
+            <div className="flex justify-between items-center p-2 border border-dashed border-gray-200 rounded-lg">
+              <span className="text-muted-foreground">No meal planned</span>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setSelectedDay(day)}
+              >
+                Add
+              </Button>
+            </div>
+          ) : (
+            recipes.map((recipe) => (
+              <div key={recipe.id} className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden">
+                    {recipe.imageUrl ? (
+                      <img src={recipe.imageUrl} alt={recipe.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="material-icons text-muted-foreground">restaurant</span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="font-medium">{recipe.title}</h4>
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <span className="material-icons text-xs mr-1">schedule</span>
+                      {recipe.prepTime} min
+                    </div>
+                  </div>
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => updateMealPlan.mutate({ day, mealType: title.toLowerCase(), recipe })}
+                >
+                  Change
+                </Button>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -72,18 +152,21 @@ export default function MealPlan() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recipes.length === 0 ? (
-                      <div className="text-center py-4">
-                        <p className="text-muted-foreground">No recipes available.</p>
-                        <p className="text-sm text-muted-foreground">Add ingredients and find recipes on the home page first.</p>
-                      </div>
-                    ) : (
-                      <>
-                        <MealCard title="Breakfast" recipes={getRandomRecipes(1)} />
-                        <MealCard title="Lunch" recipes={getRandomRecipes(1)} />
-                        <MealCard title="Dinner" recipes={getRandomRecipes(1)} />
-                      </>
-                    )}
+                    <MealCard 
+                      title="Breakfast" 
+                      recipes={mealPlans[day.toLowerCase()]?.breakfast || []} 
+                      day={day.toLowerCase()} 
+                    />
+                    <MealCard 
+                      title="Lunch" 
+                      recipes={mealPlans[day.toLowerCase()]?.lunch || []} 
+                      day={day.toLowerCase()} 
+                    />
+                    <MealCard 
+                      title="Dinner" 
+                      recipes={mealPlans[day.toLowerCase()]?.dinner || []} 
+                      day={day.toLowerCase()} 
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -99,50 +182,5 @@ export default function MealPlan() {
         </Tabs>
       </section>
     </div>
-  );
-}
-
-function MealCard({ title, recipes }: { title: string, recipes: Recipe[] }) {
-  return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {recipes.length === 0 ? (
-          <div className="flex justify-between items-center p-2 border border-dashed border-gray-200 rounded-lg">
-            <span className="text-muted-foreground">No meal planned</span>
-            <Button variant="ghost" size="sm">Add</Button>
-          </div>
-        ) : (
-          recipes.map((recipe) => (
-            <div key={recipe.id} className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden">
-                  {recipe.imageUrl ? (
-                    <img src={recipe.imageUrl} alt={recipe.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <span className="material-icons text-muted-foreground">restaurant</span>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h4 className="font-medium">{recipe.title}</h4>
-                  <div className="flex items-center text-xs text-muted-foreground">
-                    <span className="material-icons text-xs mr-1">schedule</span>
-                    <span>{recipe.prepTime} mins</span>
-                    <span className="mx-1">•</span>
-                    <span className="material-icons text-xs mr-1">local_fire_department</span>
-                    <span>{recipe.calories} cal</span>
-                  </div>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm">Change</Button>
-            </div>
-          ))
-        )}
-      </CardContent>
-    </Card>
   );
 }
