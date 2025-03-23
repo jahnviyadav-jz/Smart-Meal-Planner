@@ -28,16 +28,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       try {
         console.log("Using Nebius for image scanning...");
-        const nebiusResult = await nebiusClient.analyzeImage(data.image || "");
+        if (!data.image || data.image.length < 100) {
+          return res.status(400).json({
+            message: "Please provide a valid image. The image data appears to be missing or corrupted."
+          });
+        }
+
+        const nebiusResult = await nebiusClient.analyzeImage(data.image);
         
         if (!nebiusResult || !nebiusResult.labels || !Array.isArray(nebiusResult.labels)) {
-          throw new Error("Invalid response format from Nebius");
+          return res.status(422).json({
+            message: "We couldn't process the image. Please try again with a clearer photo.",
+            details: "Make sure the image is well-lit and food items are clearly visible."
+          });
+        }
+
+        if (nebiusResult.labels.length === 0) {
+          return res.status(422).json({
+            message: "No ingredients were detected in the image. Please try again with a clearer photo.",
+            details: "Try taking the photo in better lighting and ensure food items are in focus."
+          });
         }
 
         // Process Nebius result
         const ingredients = nebiusResult.labels
           .filter((label: any) => label.confidence > 0.7)
           .map((label: any) => label.name);
+
+        if (ingredients.length === 0) {
+          return res.status(422).json({
+            message: "We couldn't identify ingredients with high confidence. Please try again with a clearer photo.",
+            details: "Ensure the ingredients are clearly visible and well-lit."
+          });
+        }
           
         // Add the identified ingredients to the user's pantry
         const userId = 1; // For now, use a default user ID
@@ -55,8 +78,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (nebiusError) {
         console.error("Nebius API error in image scanning:", nebiusError);
         res.status(500).json({ 
-          message: "Failed to scan ingredients from image",
-          error: nebiusError instanceof Error ? nebiusError.message : "Unknown error"
+          message: "We couldn't process the image. Please try again with a clearer photo.",
+          details: "The image recognition service encountered an error. Try a different photo."
         });
       }
     } catch (error) {
