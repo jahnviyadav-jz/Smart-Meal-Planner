@@ -181,39 +181,6 @@ export default function MealPlan() {
           ))}
         </Tabs>
       </section>
-
-      {/* Nutrition Section */}
-      <section className="mt-8 border-t pt-8">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Nutrition Overview</h3>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="text-center">
-              <p className="text-muted-foreground text-sm">Calories</p>
-              <p className="text-2xl font-semibold mt-1">2100</p>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-center">
-              <p className="text-muted-foreground text-sm">Protein</p>
-              <p className="text-2xl font-semibold mt-1">75g</p>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-center">
-              <p className="text-muted-foreground text-sm">Carbs</p>
-              <p className="text-2xl font-semibold mt-1">250g</p>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="text-center">
-              <p className="text-muted-foreground text-sm">Fat</p>
-              <p className="text-2xl font-semibold mt-1">65g</p>
-            </div>
-          </Card>
-        </div>
-      </section>
     </div>
   );
 }
