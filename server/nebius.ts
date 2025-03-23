@@ -18,14 +18,11 @@ class NebiusClient {
   // Helper method for API requests
   private async makeRequest(path: string, method: string, data?: any) {
     try {
-      // Ensure endpoint has proper URL format
-      const baseUrl = this.config.endpoint.startsWith('http') 
-        ? this.config.endpoint 
-        : `https://${this.config.endpoint}`;
+      const baseUrl = 'https://api.nebius.ai/v1';
       
       const response = await axios({
         method,
-        url: new URL(path, baseUrl).toString(),
+        url: `${baseUrl}${path}`,
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
           'Content-Type': 'application/json'
