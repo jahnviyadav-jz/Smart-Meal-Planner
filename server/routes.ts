@@ -2,7 +2,6 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import OpenAI from "openai";
 import { 
   insertIngredientSchema,
   insertGroceryItemSchema,
@@ -13,13 +12,7 @@ import {
 } from "../shared/schema";
 import { nebiusClient } from "./nebius";
 
-// Initialize OpenAI API with API key from environment variable
-console.log("OpenAI API Key available:", !!process.env.OPENAI_API_KEY);
 console.log("Nebius API Key available:", !!process.env.NEBIUS_API_KEY);
-
-const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Image Scan API - Scan ingredients from an image
@@ -27,94 +20,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = imageScanRequestSchema.parse(req.body);
       
-      // Try using Nebius first if available
-      if (nebiusClient) {
-        try {
-          console.log("Using Nebius for image scanning...");
-          const nebiusResult = await nebiusClient.analyzeImage(data.image || "");
-          
-          if (nebiusResult && nebiusResult.labels && Array.isArray(nebiusResult.labels)) {
-            // Process Nebius result
-            const ingredients = nebiusResult.labels
-              .filter((label: any) => label.confidence > 0.7)
-              .map((label: any) => label.name);
-              
-            // Add the identified ingredients to the user's pantry
-            const userId = 1; // For now, use a default user ID
-            const addedIngredients = await Promise.all(
-              ingredients.map(async (name: string) => {
-                return await storage.addIngredient({ name, userId });
-              })
-            );
-            
-            res.json({ 
-              ingredients,
-              added: addedIngredients,
-              provider: "nebius" 
-            });
-            return;
-          }
-        } catch (nebiusError) {
-          console.error("Nebius API error in image scanning:", nebiusError);
-          // Fall back to OpenAI - continue with OpenAI code below
-          console.log("Falling back to OpenAI for image scanning...");
-        }
-      }
-      
-      // Fallback to OpenAI if Nebius is not available or fails
-      try {
-        // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a computer vision expert specialized in identifying food ingredients from images. Return your analysis as a JSON object with an 'ingredients' array containing the names of all food items you can identify."
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Identify all food ingredients in this image. Return ONLY a JSON object with an array called 'ingredients' listing all the food items you can see."
-                },
-                {
-                  type: "image_url",
-                  image_url: {
-                    url: data.image || ""
-                  }
-                }
-              ],
-            }
-          ],
-          response_format: { type: "json_object" }
+      if (!nebiusClient) {
+        return res.status(500).json({ 
+          message: "Image scanning service is not available - Nebius API key not configured"
         });
+      }
+
+      try {
+        console.log("Using Nebius for image scanning...");
+        const nebiusResult = await nebiusClient.analyzeImage(data.image || "");
         
-        // Parse the JSON response
-        const result = JSON.parse(response.choices[0].message.content);
-        
-        if (!result.ingredients || !Array.isArray(result.ingredients)) {
-          throw new Error("Invalid response format from AI");
+        if (!nebiusResult || !nebiusResult.labels || !Array.isArray(nebiusResult.labels)) {
+          throw new Error("Invalid response format from Nebius");
         }
-        
+
+        // Process Nebius result
+        const ingredients = nebiusResult.labels
+          .filter((label: any) => label.confidence > 0.7)
+          .map((label: any) => label.name);
+          
         // Add the identified ingredients to the user's pantry
         const userId = 1; // For now, use a default user ID
         const addedIngredients = await Promise.all(
-          result.ingredients.map(async (name: string) => {
+          ingredients.map(async (name: string) => {
             return await storage.addIngredient({ name, userId });
           })
         );
         
         res.json({ 
-          ingredients: result.ingredients,
+          ingredients,
           added: addedIngredients,
-          provider: "openai"
+          provider: "nebius" 
         });
-      } catch (openaiError: unknown) {
-        console.error("OpenAI API error in image scanning:", openaiError);
+      } catch (nebiusError) {
+        console.error("Nebius API error in image scanning:", nebiusError);
         res.status(500).json({ 
-          message: "Failed to scan ingredients from image. All AI services are currently unavailable.",
-          error: openaiError instanceof Error ? openaiError.message : "Unknown error"
+          message: "Failed to scan ingredients from image",
+          error: nebiusError instanceof Error ? nebiusError.message : "Unknown error"
         });
       }
     } catch (error) {
