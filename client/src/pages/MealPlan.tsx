@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,7 +10,7 @@ export default function MealPlan() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [selectedDay, setSelectedDay] = useState<string>("");
-  
+
   // Fetch recipes and meal plans
   const { data: recipes = [] } = useQuery<Recipe[]>({
     queryKey: ["/api/recipes"],
@@ -56,9 +55,9 @@ export default function MealPlan() {
 
   function MealCard({ title, recipes, day }: { title: string; recipes: Recipe[]; day: string }) {
     return (
-      <Card>
+      <Card className="mb-4"> {/* Added margin bottom */}
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">{title}</CardTitle>
+          <CardTitle className="text-lg font-medium">{title}</CardTitle> {/* Increased font size */}
         </CardHeader>
         <CardContent>
           {recipes.length === 0 ? (
@@ -74,21 +73,21 @@ export default function MealPlan() {
             </div>
           ) : (
             recipes.map((recipe) => (
-              <div key={recipe.id} className="flex justify-between items-center">
+              <div key={recipe.id} className="flex justify-between items-center mb-2"> {/* Added margin bottom */}
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden">
+                  <div className="w-16 h-16 bg-gray-100 rounded-md overflow-hidden"> {/* Increased image size */}
                     {recipe.imageUrl ? (
                       <img src={recipe.imageUrl} alt={recipe.title} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="material-icons text-muted-foreground">restaurant</span>
+                        <span className="material-icons text-muted-foreground text-xl">restaurant</span> {/* Increased icon size */}
                       </div>
                     )}
                   </div>
                   <div>
                     <h4 className="font-medium">{recipe.title}</h4>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <span className="material-icons text-xs mr-1">schedule</span>
+                    <div className="flex items-center text-sm text-muted-foreground"> {/* Decreased font size */}
+                      <span className="material-icons text-sm mr-1">schedule</span>
                       {recipe.prepTime} min
                     </div>
                   </div>
@@ -109,28 +108,28 @@ export default function MealPlan() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="container mx-auto px-4 py-8"> {/* Kept the container for responsiveness */}
       <section>
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-semibold">Meal Plan</h1>
-          <Button>
+          <h1 className="text-3xl font-semibold text-gray-800">Your Meal Plan</h1> {/* Improved title */}
+          <Button className="bg-primary text-white"> {/* Added styling to the button */}
             <span className="material-icons mr-2">add</span>
             New Plan
           </Button>
         </div>
-        
-        <Tabs defaultValue={weekDays[currentDay].toLowerCase()}>
-          <div className="overflow-x-auto pb-2">
+
+        <Tabs defaultValue={weekDays[currentDay].toLowerCase()} className="mb-6"> {/* Added margin bottom */}
+          <div className="overflow-x-auto">
             <TabsList className="w-full justify-start">
               {weekDays.map((day, index) => (
                 <TabsTrigger 
                   key={day} 
                   value={day.toLowerCase()}
-                  className={index === currentDay ? "font-bold" : ""}
+                  className={`${index === currentDay ? "font-bold text-primary" : "text-gray-600"}`} {/* Improved styling for active day */}
                 >
-                  <div className="flex flex-col items-center">
+                  <div className="flex flex-col items-center py-2 px-4 rounded hover:bg-gray-100"> {/* Added padding and hover effect */}
                     <span className="text-xs text-muted-foreground">{day.slice(0, 3)}</span>
-                    <span className={index === currentDay ? "text-primary" : ""}>
+                    <span className=""> {/* Removed conditional styling, handled above */}
                       {new Date(new Date().setDate(new Date().getDate() - today + 1 + index)).getDate()}
                     </span>
                   </div>
@@ -138,12 +137,12 @@ export default function MealPlan() {
               ))}
             </TabsList>
           </div>
-          
+
           {weekDays.map(day => (
             <TabsContent key={day} value={day.toLowerCase()}>
               <Card className="mb-6">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">
+                  <CardTitle className="text-lg font-medium">
                     {day}
                     {currentDay === weekDays.indexOf(day) && (
                       <span className="ml-2 text-xs bg-primary text-white px-2 py-1 rounded-full">Today</span>
@@ -170,9 +169,9 @@ export default function MealPlan() {
                   </div>
                 </CardContent>
               </Card>
-              
-              <div className="flex justify-center">
-                <Button variant="outline">
+
+              <div className="flex justify-center mt-4"> {/* Added margin top */}
+                <Button variant="outline" className="bg-gray-100 hover:bg-gray-200"> {/* Added styling to the button */}
                   <span className="material-icons mr-2">print</span>
                   Print Day's Plan
                 </Button>
