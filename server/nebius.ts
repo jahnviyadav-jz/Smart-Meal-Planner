@@ -18,7 +18,7 @@ class NebiusClient {
   // Helper method for API requests
   private async makeRequest(path: string, method: string, data?: any) {
     try {
-      const baseUrl = 'https://api.nebius.ai/v1';
+      const baseUrl = 'https://vision.api.nebius.cloud';
       
       const response = await axios({
         method,
@@ -43,7 +43,7 @@ class NebiusClient {
       ? imageBase64.split('base64,')[1] 
       : imageBase64;
       
-    return this.makeRequest('/vision/analyze', 'POST', {
+    return this.makeRequest('/v1/vision/classify', 'POST', {
       image: {
         content: base64Data
       },
