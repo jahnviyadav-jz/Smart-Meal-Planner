@@ -11,11 +11,3 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
-
-.nav-link {
-    @apply text-muted-foreground hover:text-foreground transition-colors;
-  }
-
-  .clear-button {
-    @apply text-sm text-muted-foreground hover:text-foreground transition-colors;
-  }

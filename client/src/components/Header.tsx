@@ -1,72 +1,89 @@
 import { Link } from "wouter";
 import { useState } from "react";
-import { Button } from "./ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
 
-export default function Header() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState({ name: '', image: '' });
+interface HeaderProps {
+  currentPath: string;
+}
 
-  const handleLogin = () => {
-    // Implement authentication logic here
-    setIsAuthenticated(true);
-    setUser({ name: 'User', image: '' });
-  };
-
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setUser({ name: '', image: '' });
-  };
+export default function Header({ currentPath }: HeaderProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  
+  const navItems = [
+    { name: "Home", path: "/" },
+    { name: "Recipes", path: "/recipes" },
+    { name: "Meal Plan", path: "/meal-plan" },
+    { name: "Grocery List", path: "/grocery-list" },
+    { name: "Nutrition", path: "/nutrition" },
+  ];
 
   return (
-    <header className="border-b">
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between">
-          <nav className="flex gap-6">
-            <Link href="/">
-              <a className="text-lg font-semibold">Meal Planner</a>
-            </Link>
-            <Link href="/ingredients">
-              <a className="nav-link">Ingredients</a>
-            </Link>
-            <Link href="/recipes">
-              <a className="nav-link">Recipes</a>
-            </Link>
-            <Link href="/plan">
-              <a className="nav-link">Plan</a>
-            </Link>
-            <Link href="/nutrition">
-              <a className="nav-link">Nutrition</a>
-            </Link>
+    <header className="bg-white shadow-custom sticky top-0 z-50">
+      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center">
+          <span className="material-icons text-primary mr-2">restaurant_menu</span>
+          <h1 className="text-xl font-semibold">Smart Meal Planner</h1>
+        </div>
+        <div className="flex items-center">
+          <button className="p-2" aria-label="Notifications">
+            <span className="material-icons text-muted-foreground">notifications_none</span>
+          </button>
+          <button className="p-2" aria-label="User profile">
+            <span className="material-icons text-muted-foreground">account_circle</span>
+          </button>
+          <button
+            className="p-2 sm:hidden"
+            aria-label="Menu"
+            onClick={() => setMenuOpen(!menuOpen)}
+          >
+            <span className="material-icons text-muted-foreground">
+              {menuOpen ? "close" : "menu"}
+            </span>
+          </button>
+        </div>
+      </div>
+      
+      {/* Mobile Menu */}
+      {menuOpen && (
+        <div className="sm:hidden bg-white border-b border-gray-200 absolute w-full z-50">
+          <nav className="flex flex-col">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                href={item.path}
+                onClick={() => setMenuOpen(false)}
+              >
+                <a className={`px-4 py-3 ${
+                  currentPath === item.path
+                    ? "text-primary font-medium"
+                    : "text-muted-foreground"
+                }`}>
+                  {item.name}
+                </a>
+              </Link>
+            ))}
           </nav>
-
-          <div>
-            {isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.image} alt={user.name} />
-                      <AvatarFallback>{user.name[0]}</AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleLogout}>
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <Button onClick={handleLogin}>Sign In</Button>
-            )}
-          </div>
+        </div>
+      )}
+      
+      {/* Desktop Navigation */}
+      <div className="bg-white border-b border-gray-200 hidden sm:block">
+        <div className="container mx-auto">
+          <nav className="flex overflow-x-auto scrollbar-hide">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                href={item.path}
+              >
+                <a className={`px-4 py-3 ${
+                  currentPath === item.path
+                    ? "text-primary border-b-2 border-primary font-medium"
+                    : "text-muted-foreground font-medium"
+                }`}>
+                  {item.name}
+                </a>
+              </Link>
+            ))}
+          </nav>
         </div>
       </div>
     </header>
